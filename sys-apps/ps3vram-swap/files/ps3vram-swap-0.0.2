@@ -1,0 +1,21 @@
+#!/sbin/openrc-run
+
+start() {
+    ebegin "Starting ps3vram-swap"
+    if ! swapon -s | grep -q '/dev/ps3vram'; then
+        wipefs -a /dev/ps3vram > /dev/null
+        mkswap /dev/ps3vram > /dev/null
+        swapon /dev/ps3vram -p10 > /dev/null
+    fi
+    # Increase vm.min_free_kbytes value for better stability on low memory system
+    sysctl vm.min_free_kbytes=10240
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping ps3vram-swap"
+    if swapon -s | grep -q '/dev/ps3vram'; then
+        swapoff /dev/ps3vram > /dev/null
+    fi
+    eend $?
+}

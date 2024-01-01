@@ -1,0 +1,27 @@
+#!/sbin/openrc-run
+
+start() {
+    ebegin "Starting ps3gpu"
+    if [ ! -e /dev/ps3gpu_vram ]; then
+        module="ps3fb"
+        major=$(awk "\$2==\"$module\" {print \$1}" /proc/devices)
+        mknod /dev/ps3gpu_vram    c ${major} 0
+        mknod /dev/ps3gpu_fifo    c ${major} 1
+        mknod /dev/ps3gpu_ctrl    c ${major} 2
+        mknod /dev/ps3gpu_driver  c ${major} 3
+        mknod /dev/ps3gpu_reports c ${major} 4
+    fi
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping ps3gpu"
+    if [ -e /dev/ps3gpu_vram ]; then
+        rm /dev/ps3gpu_vram
+        rm /dev/ps3gpu_fifo
+        rm /dev/ps3gpu_ctrl
+        rm /dev/ps3gpu_driver
+        rm /dev/ps3gpu_reports
+    fi
+    eend $?
+}
