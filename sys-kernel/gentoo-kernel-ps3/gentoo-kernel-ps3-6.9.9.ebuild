@@ -31,8 +31,9 @@ SRC_URI+="
 S=${WORKDIR}/${MY_P}
 
 KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~loong ~ppc ppc64 ~riscv ~sparc ~x86"
-IUSE="debug hardened"
+IUSE="debug hardened X"
 REQUIRED_USE=""
+PATCHES_USE="${IUSE}"
 
 RDEPEND="
 	!sys-kernel/gentoo-kernel-bin:${SLOT}
@@ -52,8 +53,16 @@ src_prepare() {
 	local PATCHES=(
 		# meh, genpatches have no directory
 		"${WORKDIR}"/*.patch
-		"${WORKDIR}/ps3_patches"/*.patch
 	)
+	PATCHES_PS3=( "${WORKDIR}/ps3_patches"/*.patch )
+	for flag in ${PATCHES_USE}; do
+		if use ${flag}; then
+			[[ -d "${WORKDIR}/ps3_patches/${flag}" ]] && PATCHES_PS3+=( "${WORKDIR}/ps3_patches/${flag}"/*.patch )
+		else
+			[[ -d "${WORKDIR}/ps3_patches/-${flag}" ]] && PATCHES_PS3+=( "${WORKDIR}/ps3_patches/-${flag}"/*.patch )
+		fi
+	done
+	PATCHES+=(${PATCHES_PS3[@]})
 	default
 
 	cp "${WORKDIR}/ps3_gentoo_defconfig" .config || die
@@ -113,11 +122,42 @@ pkg_postinst() {
 	if [ -z "$boot_partition" ]; then
 		vmlinux_path_prefix="/boot"
 	fi
-	kboot_entry="Gentoo-Kernel-${PV}='${vmlinux_path_prefix}/vmlinux-${PV}-gentoo-ps3-dist root=${root_partition} video=ps3fb:mode:133 rhgb'"
+	kboot_entry="Gentoo-Kernel-${PV}='${vmlinux_path_prefix}/vmlinux-${PV}-gentoo-ps3-dist root=${root_partition} video=ps3fb:mode:133'"
 	if [ -f "${kboot_path}" ]; then
-		sed -i "1i ${kboot_entry}" "${kboot_path}"
+		grep -qxF "${kboot_entry}" "${kboot_path}" 2>/dev/null || sed -i "1i ${kboot_entry}" "${kboot_path}"
 	else
 		echo "${kboot_entry}" >> "${kboot_path}"
 	fi
 	elog "KBOOT entry added to ${kboot_path}"
+}
+
+pkg_prerm() {
+	# Find root and boot partition
+	root_partition=$(awk '!/^[[:space:]]*#/ && $2 == "/" {print $1}' /etc/fstab)
+	boot_partition=$(awk '!/^[[:space:]]*#/ && $2 == "/boot" {print $1}' /etc/fstab)
+
+	if [ ! -z "$root_partition" ]; then
+		einfo "Root partition detected: $root_partition."
+		kboot_path="/etc/kboot.conf"
+	fi
+	if [ ! -z "$boot_partition" ]; then
+		einfo "Boot partition detected: $boot_partition."
+		kboot_path="/boot/kboot.conf"
+	fi
+	if [ -z "$root_partition" ]; then
+		ewarn "Skipping kboot configuration, because the root partition was not detected."
+		ewarn "Please configure it manually."
+	fi
+	# If there is no separate /boot partition, the boot entry needs /boot prefix/
+	if [ -z "$boot_partition" ]; then
+		vmlinux_path_prefix="/boot"
+	fi
+	kboot_entry="Gentoo-Kernel-${PV}='${vmlinux_path_prefix}/vmlinux-${PV}-gentoo-ps3-dist root=${root_partition} video=ps3fb:mode:133'"
+
+	if [ -f "${kboot_path}" ]; then
+		sed -i "\|${kboot_entry}|d" "${kboot_path}"
+		elog "KBOOT entry removed from ${kboot_path}"
+	else
+		ewarn "KBOOT configuration file not found: ${kboot_path}"
+	fi
 }

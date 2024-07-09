@@ -31,8 +31,9 @@ SRC_URI+="
 S=${WORKDIR}/${MY_P}
 
 KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~loong ~ppc ppc64 ~riscv ~sparc ~x86"
-IUSE="debug hardened"
+IUSE="debug hardened X"
 REQUIRED_USE=""
+PATCHES_USE="${IUSE}"
 
 RDEPEND="
 	!sys-kernel/gentoo-kernel-bin:${SLOT}
@@ -52,8 +53,16 @@ src_prepare() {
 	local PATCHES=(
 		# meh, genpatches have no directory
 		"${WORKDIR}"/*.patch
-		"${WORKDIR}/ps3_patches"/*.patch
 	)
+	PATCHES_PS3=( "${WORKDIR}/ps3_patches"/*.patch )
+	for flag in ${PATCHES_USE}; do
+		if use ${flag}; then
+			[[ -d "${WORKDIR}/ps3_patches/${flag}" ]] && PATCHES_PS3+=( "${WORKDIR}/ps3_patches/${flag}"/*.patch )
+		else
+			[[ -d "${WORKDIR}/ps3_patches/-${flag}" ]] && PATCHES_PS3+=( "${WORKDIR}/ps3_patches/-${flag}"/*.patch )
+		fi
+	done
+	PATCHES+=(${PATCHES_PS3[@]})
 	default
 
 	cp "${WORKDIR}/ps3_gentoo_defconfig" .config || die
