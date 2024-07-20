@@ -1,5 +1,5 @@
 EAPI=8
-DESCRIPTION="Contains init script that initializes RSX GPU on /dev/ps3gpu_*"
+DESCRIPTION="Contains script that initializes RSX GPU on /dev/ps3gpu_*"
 HOMEPAGE="https://github.com/damiandudycz/ps3"
 LICENSE="GPL-2"
 SLOT="0"
