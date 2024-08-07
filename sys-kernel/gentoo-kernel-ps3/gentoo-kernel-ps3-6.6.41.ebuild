@@ -1,17 +1,19 @@
-# Copyright 2020-2023 Gentoo Authors
+# Copyright 2020-2024 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
+KERNEL_IUSE_GENERIC_UKI=1
 KERNEL_IUSE_MODULES_SIGN=1
+
 inherit kernel-build toolchain-funcs
 
 MY_P=linux-${PV%.*}
-GENPATCHES_P=genpatches-${PV%.*}-$(( ${PV##*.} + 2 ))
+GENPATCHES_P=genpatches-${PV%.*}-$(( ${PV##*.} + 7 ))
 # https://koji.fedoraproject.org/koji/packageinfo?packageID=8
 # forked to https://github.com/projg2/fedora-kernel-config-for-gentoo
-CONFIG_VER=6.5.4-gentoo
-GENTOO_CONFIG_VER=g9
+CONFIG_VER=6.6.12-gentoo
+GENTOO_CONFIG_VER=g13
 
 DESCRIPTION="Linux kernel built with Gentoo patches and PS3 patches"
 HOMEPAGE="
@@ -28,8 +30,7 @@ SRC_URI+="
 "
 S=${WORKDIR}/${MY_P}
 
-LICENSE="GPL-2"
-KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~ppc ppc64 ~riscv ~sparc ~x86"
+KEYWORDS="amd64 ~arm arm64 ~hppa ~loong ~ppc ppc64 ~riscv ~sparc x86"
 IUSE="debug hardened X"
 REQUIRED_USE=""
 PATCHES_USE="${IUSE}"
@@ -49,50 +50,50 @@ QA_FLAGS_IGNORED="
 "
 
 src_prepare() {
-        local PATCHES=(
-                # meh, genpatches have no directory
-                "${WORKDIR}"/*.patch
-        )
+	local PATCHES=(
+		# meh, genpatches have no directory
+		"${WORKDIR}"/*.patch
+	)
 	PATCHES_PS3=( "${WORKDIR}/ps3_patches"/*.patch )
-        for flag in ${PATCHES_USE}; do
-                if use ${flag}; then
-                        [[ -d "${WORKDIR}/ps3_patches/${flag}" ]] && PATCHES_PS3+=( "${WORKDIR}/ps3_patches/${flag}"/*.patch )
-                else
-                        [[ -d "${WORKDIR}/ps3_patches/-${flag}" ]] && PATCHES_PS3+=( "${WORKDIR}/ps3_patches/-${flag}"/*.patch )
-                fi
-        done
+	for flag in ${PATCHES_USE}; do
+		if use ${flag}; then
+			[[ -d "${WORKDIR}/ps3_patches/${flag}" ]] && PATCHES_PS3+=( "${WORKDIR}/ps3_patches/${flag}"/*.patch )
+		else
+			[[ -d "${WORKDIR}/ps3_patches/-${flag}" ]] && PATCHES_PS3+=( "${WORKDIR}/ps3_patches/-${flag}"/*.patch )
+		fi
+	done
 	PATCHES+=(${PATCHES_PS3[@]})
-        default
+	default
 
-        cp "${WORKDIR}/ps3_gentoo_defconfig" .config || die
+	cp "${WORKDIR}/ps3_gentoo_defconfig" .config || die
 
-        local myversion="-gentoo-ps3-dist"
-        use hardened && myversion+="-hardened"
-        echo "CONFIG_LOCALVERSION=\"${myversion}\"" > "${T}"/version.config || die
-        local dist_conf_path="${WORKDIR}/gentoo-kernel-config-${GENTOO_CONFIG_VER}"
+	local myversion="-gentoo-ps3-dist"
+	use hardened && myversion+="-hardened"
+	echo "CONFIG_LOCALVERSION=\"${myversion}\"" > "${T}"/version.config || die
+	local dist_conf_path="${WORKDIR}/gentoo-kernel-config-${GENTOO_CONFIG_VER}"
 
-        local merge_configs=(
-                "${T}"/version.config
-        )
+	local merge_configs=(
+		"${T}"/version.config
+	)
 	use debug || merge_configs+=(
-                "${dist_conf_path}"/no-debug.config
-        )
-        if use hardened; then
-                merge_configs+=( "${dist_conf_path}"/hardened-base.config )
+		"${dist_conf_path}"/no-debug.config
+	)
+	if use hardened; then
+		merge_configs+=( "${dist_conf_path}"/hardened-base.config )
 
-                tc-is-gcc && merge_configs+=( "${dist_conf_path}"/hardened-gcc-plugins.config )
+		tc-is-gcc && merge_configs+=( "${dist_conf_path}"/hardened-gcc-plugins.config )
 
-                if [[ -f "${dist_conf_path}/hardened-${ARCH}.config" ]]; then
-                        merge_configs+=( "${dist_conf_path}/hardened-${ARCH}.config" )
-                fi
-        fi
+		if [[ -f "${dist_conf_path}/hardened-${ARCH}.config" ]]; then
+			merge_configs+=( "${dist_conf_path}/hardened-${ARCH}.config" )
+		fi
+	fi
 
-        # this covers ppc64 and aarch64_be only for now
-        merge_configs+=( "${dist_conf_path}/big-endian.config" )
+	# this covers ppc64 and aarch64_be only for now
+	merge_configs+=( "${dist_conf_path}/big-endian.config" )
 
-        use secureboot && merge_configs+=( "${dist_conf_path}/secureboot.config" )
+	use secureboot && merge_configs+=( "${dist_conf_path}/secureboot.config" )
 
-        kernel-build_merge_configs "${merge_configs[@]}"
+	kernel-build_merge_configs "${merge_configs[@]}"
 }
 
 pkg_postinst() {
