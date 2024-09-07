@@ -54,23 +54,24 @@ src_prepare() {
 		# meh, genpatches have no directory
 		"${WORKDIR}"/*.patch
 	)
+
 	# Add PS3 patches matching USE flags
-        for patch_file in "${WORKDIR}/ps3_patches/"*.patch; do
-            patch_name=$(basename "${patch_file}")
-            if [[ ! $patch_name =~ \[([^]]+)\] ]]; then
-                PATCHES_PS3+=( "${patch_file}" )
-            else
-                flags=$(grep -o '\[[^]]*\]' <<< "$patch_name")
-                add=false
-                while IFS= read -r flag; do
-                    flag=${flag:1:-1}
-                    use ${flag} && add=true
-                done <<< "$flags"
-                if [[ $add = true ]]; then
-                    PATCHES_PS3+=( "${patch_file}" )
-                fi
-            fi
-        done
+	for patch_file in "${WORKDIR}/ps3_patches/"*.patch; do
+		patch_name=$(basename "${patch_file}")
+		if [[ ! $patch_name =~ \[([^]]+)\] ]]; then
+			PATCHES_PS3+=( "${patch_file}" )
+		else
+			flags=$(grep -o '\[[^]]*\]' <<< "$patch_name")
+			add=false
+			while IFS= read -r flag; do
+				flag=${flag:1:-1}
+				use ${flag} && add=true
+			done <<< "$flags"
+			if [[ $add = true ]]; then
+				PATCHES_PS3+=( "${patch_file}" )
+			fi
+		fi
+	done
 	PATCHES+=(${PATCHES_PS3[@]})
 	# Sort all patches by name
 	sorted_patches=($(for patch in "${PATCHES[@]}"; do echo "$patch"; done | sort))
@@ -101,7 +102,6 @@ src_prepare() {
 		fi
 	fi
 
-	# this covers ppc64 and aarch64_be only for now
 	merge_configs+=( "${dist_conf_path}/big-endian.config" )
 
 	use secureboot && merge_configs+=( "${dist_conf_path}/secureboot.config" )
@@ -110,9 +110,7 @@ src_prepare() {
 }
 
 pkg_postinst() {
-
 	kernel-build_pkg_postinst
-
 	# Update KBOOT entry:
 
 	# Find root and boot partition
@@ -135,42 +133,11 @@ pkg_postinst() {
 	if [ -z "$boot_partition" ]; then
 		vmlinux_path_prefix="/boot"
 	fi
-	kboot_entry="Gentoo-Kernel-${PV}='${vmlinux_path_prefix}/vmlinux-${PV}-gentoo-ps3-dist root=${root_partition} video=ps3fb:mode:133'"
+	kboot_entry="Gentoo-Kernel-${PV}='${vmlinux_path_prefix}/vmlinux-${PV}-gentoo-ps3-dist initrd=${vmlinux_path_prefix}/initramfs-${PV}-gentoo-ps3-dist.img root=${root_partition} video=ps3fb:mode:133'"
 	if [ -f "${kboot_path}" ]; then
 		grep -qxF "${kboot_entry}" "${kboot_path}" 2>/dev/null || sed -i "1i ${kboot_entry}" "${kboot_path}"
 	else
 		echo "${kboot_entry}" >> "${kboot_path}"
 	fi
 	elog "KBOOT entry added to ${kboot_path}"
-}
-
-pkg_prerm() {
-	# Find root and boot partition
-	root_partition=$(awk '!/^[[:space:]]*#/ && $2 == "/" {print $1}' /etc/fstab)
-	boot_partition=$(awk '!/^[[:space:]]*#/ && $2 == "/boot" {print $1}' /etc/fstab)
-
-	if [ ! -z "$root_partition" ]; then
-		einfo "Root partition detected: $root_partition."
-		kboot_path="/etc/kboot.conf"
-	fi
-	if [ ! -z "$boot_partition" ]; then
-		einfo "Boot partition detected: $boot_partition."
-		kboot_path="/boot/kboot.conf"
-	fi
-	if [ -z "$root_partition" ]; then
-		ewarn "Skipping kboot configuration, because the root partition was not detected."
-		ewarn "Please configure it manually."
-	fi
-	# If there is no separate /boot partition, the boot entry needs /boot prefix/
-	if [ -z "$boot_partition" ]; then
-		vmlinux_path_prefix="/boot"
-	fi
-	kboot_entry="Gentoo-Kernel-${PV}='${vmlinux_path_prefix}/vmlinux-${PV}-gentoo-ps3-dist root=${root_partition} video=ps3fb:mode:133'"
-
-	if [ -f "${kboot_path}" ]; then
-		sed -i "\|${kboot_entry}|d" "${kboot_path}"
-		elog "KBOOT entry removed from ${kboot_path}"
-	else
-		ewarn "KBOOT configuration file not found: ${kboot_path}"
-	fi
 }
