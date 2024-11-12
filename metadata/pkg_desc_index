@@ -1,0 +1,4 @@
+sys-apps/ps3-gentoo-installer 1.0.1 1.0.2 1.0.3 1.0.4 1.0.5 1.0.6 1.0.7 1.0.8 1.0.9 1.0.10 1.0.11: Automatic Gentoo Linux installer for the PlayStaion 3
+sys-apps/ps3gpu 0.0.1: Contains script that initializes RSX GPU on /dev/ps3gpu_*
+sys-apps/ps3vram-swap 0.0.1 0.0.2: Contains init script that initializes swap on /dev/ps3vram
+sys-kernel/gentoo-kernel-ps3 6.6.47 6.6.51: Linux kernel built with Gentoo patches and PS3 patches
